@@ -55,12 +55,24 @@ other skills and ask: *"check my skill"*.
 npx skills add mohamed-khairy-5i/trigger-doctor
 ```
 
-The CLI writes the skill into each agent's own directory — Claude Code
-(`~/.claude/skills/`), Hermes Agent (`~/.hermes/skills/`), Codex
-(`~/.codex/skills/`), Gemini CLI (`~/.gemini/skills/`), Cursor, and more.
-One SKILL.md, every agent.
+The CLI knows each agent's directory — one SKILL.md, every agent:
+
+| Agent | Lands in (global) |
+|---|---|
+| Claude Code | `~/.claude/skills/trigger-doctor/` |
+| Hermes Agent | `~/.hermes/skills/trigger-doctor/` |
+| Codex | `~/.codex/skills/trigger-doctor/` |
+| Cursor | `~/.cursor/skills/trigger-doctor/` |
+| Gemini CLI | `~/.gemini/skills/trigger-doctor/` |
+| GitHub Copilot | `~/.copilot/skills/trigger-doctor/` |
+
+Target only specific agents: `npx skills add mohamed-khairy-5i/trigger-doctor -a claude-code -a hermes-agent`.
 
 **Manual:** copy this folder into your agent's skills directory.
+
+**Docs:** the skill carries its own references (`references/trigger-science.md`,
+`references/report-format.md`), and `examples/example-report.md` shows a real
+worked report from the self-test — no external documentation site needed.
 
 ## Honesty rule
 
