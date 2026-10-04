@@ -1,0 +1,19 @@
+{
+  "skill": "trigger-doctor",
+  "version": 1,
+  "note": "Self-test suite: trigger-doctor is its own first patient. Re-run after every agent or model update; diff verdicts against the previous run.",
+  "cases": [
+    { "query": "I made a skill for my agent but it never activates, help me figure out why", "should_trigger": true },
+    { "query": "Can you check if this SKILL.md will actually fire when it should?", "should_trigger": true },
+    { "query": "My skill triggers on everything, it's so annoying - fix it", "should_trigger": true },
+    { "query": "Audit this skill description before I publish it", "should_trigger": true },
+    { "query": "here's my SKILL.md - will it trigger for 'summarize this pdf'?", "should_trigger": true },
+    { "query": "write a regression suite for my skill's triggers before I update to the new model", "should_trigger": true },
+    { "query": "why isn't my skill working?", "should_trigger": true },
+    { "query": "improve my skill's description so it fires more reliably", "should_trigger": true },
+    { "query": "write unit tests for this Python function", "should_trigger": false },
+    { "query": "my pytest suite is failing, fix the import error", "should_trigger": false },
+    { "query": "create a brand-new skill from scratch that converts markdown to pdf", "should_trigger": false },
+    { "query": "set up GitHub Actions CI to run my test suite", "should_trigger": false }
+  ]
+}
