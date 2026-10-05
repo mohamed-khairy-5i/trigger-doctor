@@ -9,7 +9,8 @@
   <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
   <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
   <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">&nbsp;
-  <a href="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml/badge.svg"></a>&nbsp;
+  <a href="https://www.skills.sh/mohamed-khairy-5i/trigger-doctor/trigger-doctor"><img alt="Listed on skills.sh — security audits passed" src="https://img.shields.io/badge/skills.sh-listed_%7C_audits_3%2F3-10b981"></a>
 </p>
 
 **Behavioral testing for skill triggers.** Most skills don't die of broken
@@ -37,6 +38,9 @@ npx skills add mohamed-khairy-5i/trigger-doctor
 
 One command installs it for **all 79 agents** — the CLI knows each agent's
 skills directory. Then ask your agent: *"check my skill"*.
+
+Also listed in the [skills.sh directory](https://www.skills.sh/mohamed-khairy-5i/trigger-doctor/trigger-doctor)
+(Gen Agent Trust Hub ✅ · Socket ✅ · Snyk ✅).
 
 **Where it lands (global):**
 
