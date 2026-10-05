@@ -54,6 +54,7 @@ Rules:
 - Every Diagnosis line must name a principle (P1–P8) — no vibes.
 - The AFTER block must be copy-paste-ready YAML.
 - If the suite existed before (regression run), add a `Regression diff`
-  section listing rows whose verdict flipped — diff the new
-  `<skill-name>.results.json` against the previous results file, never
-  against the baseline (expectations do not carry verdicts).
+  section listing rows whose verdict flipped — run the mechanical diff
+  (`parse_skill.py <new>.results.json --diff <old>.results.json`; exit `3`
+  means flips) and name the rows it reports, never diff against the baseline
+  (expectations do not carry verdicts).

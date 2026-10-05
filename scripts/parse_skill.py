@@ -7,8 +7,12 @@ so the agent's judgment is spent only on the behavioral part (simulation).
 Modes:
   skill   python3 parse_skill.py <SKILL.md path or skill directory>
   suite   python3 parse_skill.py <suite.json> --suite
+  results python3 parse_skill.py <results.json> --results
+  diff    python3 parse_skill.py <new.results.json> --diff <old.results.json>
 
-Exit codes: 0 = clean (warnings allowed), 1 = usage/IO error, 2 = hard failures.
+Exit codes: 0 = clean (warnings allowed), 1 = usage/IO error,
+2 = hard failures (or structurally invalid diff input),
+3 = regression diff found flipped rows (diff mode only).
 Stdlib only — no dependencies, runs anywhere the agent runs.
 """
 from __future__ import annotations
@@ -60,9 +64,14 @@ DANGER_SIGNALS = (
     ("credential path referenced",
      re.compile(r"\.aws[/\\]credentials|\.ssh[/\\]id_|(?:^|[/\\])id_rsa\b|\.netrc\b",
                 re.IGNORECASE)),
-    ("network call with uploaded data",
-     re.compile(r"\b(?:curl|wget)\b[^\n]*\s(?:--data(?:-binary|-raw)?|-d\b|-F\b|"
-                r"--form\b|--upload-file\b|-T\b|--request\b|--post-data\b|--post-file\b)",
+    ("network call uploading a local file",
+     # Data sourced from disk (@file, =@, -T/<path>, --post-file), NOT inline
+     # literals: `curl -d '{"q": "x"}'` is a normal API example, while
+     # `curl -d @~/.aws/credentials ...` is the classic exfil shape.
+     re.compile(r"\b(?:curl|wget)\b[^\n]*(?:"
+                r"--data(?:-binary|-raw|-urlencode)?\s*@|-d\s*@|"
+                r"-(?:F|form)\s+[^\s]*=@|--form(?:-string)?\s+[^\s]*=@|"
+                r"-(?:T|upload-file)\s+\S|--post-file(?:=|\s+\S))",
                 re.IGNORECASE)),
     ("prompt-injection marker",
      re.compile(r"<!--\s*(?:SYSTEM|AI)\b|ignore (?:all )?previous instructions|"
@@ -226,7 +235,11 @@ def check_skill(path: Path) -> dict:
         add("I03", "info", "Placeholder markers (TODO/TBD/FIXME) left in body.",
             "Resolve or remove them.")
 
-    danger = [label for label, pat in DANGER_SIGNALS if pat.search(text)]
+    # Join backslash line-continuations first: real exfil commands are often
+    # written across lines (`curl ... \` / `-d @secrets`), and a per-line scan
+    # was deaf to that shape while catching benign inline examples.
+    scan_text = re.sub(r"\\\n[ \t]*", " ", text)
+    danger = [label for label, pat in DANGER_SIGNALS if pat.search(scan_text)]
     if danger:
         add("W07", "warn",
             "Security-relevant content signals (manual review required): "
@@ -346,6 +359,174 @@ def check_suite(path: Path) -> dict:
     }
 
 
+def _load_results(path: Path) -> tuple[dict | None, list]:
+    """Load a Step-5 results file. Returns (data, findings); data None if unusable."""
+    findings: list = []
+
+    def add(fid: str, sev: str, msg: str, fix: str = "") -> None:
+        findings.append({"id": fid, "severity": sev, "message": msg, "fix": fix})
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        add("R01", "error", f"Invalid JSON: {exc}", "Fix the JSON syntax.")
+        return None, findings
+    if not isinstance(data, dict) or not isinstance(data.get("cases"), list) \
+            or not data["cases"]:
+        add("R01", "error",
+            "Results file must be an object with a non-empty `cases` list.",
+            'Format: {"skill", "run", "agent", "cases": [{"query", "expected", '
+            '"judged", "verdict"}], "score": {"hits", "misses", "borderline"}}')
+        return None, findings
+    return data, findings
+
+
+def check_results(path: Path) -> dict:
+    """Validate a results file: schema, verdict consistency, score arithmetic."""
+    findings: list = []
+
+    def add(fid: str, sev: str, msg: str, fix: str = "") -> None:
+        findings.append({"id": fid, "severity": sev, "message": msg, "fix": fix})
+
+    data, load = _load_results(path)
+    findings.extend(load)
+    if data is None:
+        return {"tool": TOOL, "mode": "results", "target": str(path), "ok": False,
+                "hard_failures": 1, "warnings": 0, "infos": 0,
+                "stats": {}, "checks": findings}
+
+    cases = data["cases"]
+    for field in ("run", "agent"):
+        if not str(data.get(field) or "").strip():
+            add("R05", "warn",
+                f"No `{field}` field — provenance of this run is unrecorded.",
+                f'Add "{field}": "<{field}>" at the top.')
+
+    counts = {"HIT": 0, "MISS": 0, "borderline": 0}
+    for i, case in enumerate(cases, 1):
+        if not isinstance(case, dict):
+            add("R02", "error", f"case {i}: not an object.")
+            continue
+        q, expected, judged, verdict = (case.get("query"), case.get("expected"),
+                                        case.get("judged"), case.get("verdict"))
+        if not isinstance(q, str) or not q.strip():
+            add("R02", "error", f"case {i}: missing or blank `query`.")
+        if expected not in (True, False, "borderline"):
+            add("R02", "error",
+                f"case {i}: `expected` must be true/false or \"borderline\".")
+        if not isinstance(judged, bool):
+            add("R02", "error", f"case {i}: `judged` must be true or false.")
+        expected_ok = expected in (True, False, "borderline")
+        judged_ok = isinstance(judged, bool)
+        if expected_ok and judged_ok:
+            want = ("borderline" if expected == "borderline"
+                    else ("HIT" if judged == expected else "MISS"))
+            counts[want] += 1
+            if verdict != want:
+                add("R03", "error",
+                    f"case {i}: verdict `{verdict}` inconsistent with "
+                    f"expected={expected!r}, judged={judged!r} — should be `{want}`.",
+                    "Verdict is mechanical: judged==expected → HIT, "
+                    "else MISS, expected \"borderline\" → \"borderline\".")
+
+    score = data.get("score")
+    if not isinstance(score, dict):
+        add("R04", "error", "Missing `score` object ({hits, misses, borderline}).")
+    else:
+        for key, want in (("hits", counts["HIT"]), ("misses", counts["MISS"]),
+                          ("borderline", counts["borderline"])):
+            got = score.get(key)
+            if got != want:
+                add("R04", "error",
+                    f"score.{key} is {got!r} but cases contain {want} — "
+                    "arithmetic mismatch.", "Recompute the score from the cases.")
+
+    hard = [f for f in findings if f["severity"] == "error"]
+    return {
+        "tool": TOOL, "mode": "results", "target": str(path),
+        "ok": not hard, "hard_failures": len(hard),
+        "warnings": sum(f["severity"] == "warn" for f in findings),
+        "infos": sum(f["severity"] == "info" for f in findings),
+        "stats": {"skill": data.get("skill"), "run": data.get("run"),
+                  "cases": len(cases), "hits": counts["HIT"],
+                  "misses": counts["MISS"], "borderline": counts["borderline"]},
+        "checks": findings,
+    }
+
+
+def diff_results(prev_path: Path, curr_path: Path) -> dict:
+    """Regression diff: same query, same expectation, verdict flipped."""
+    prev, p_err = _load_results(prev_path)
+    curr, c_err = _load_results(curr_path)
+    stats = {"prev_score": (prev or {}).get("score"), "curr_score": (curr or {}).get("score")}
+    base = {"tool": TOOL, "mode": "diff", "target": str(curr_path),
+            "against": str(prev_path), "stats": stats}
+    if prev is None or curr is None:
+        broken = (prev_path if prev is None else curr_path)
+        base.update({"ok": False, "hard_failures": 1, "warnings": 0, "infos": 0,
+                     "flips": [], "structural_error": True,
+                     "checks": (p_err + c_err) or [{"id": "R01", "severity": "error",
+                                 "message": f"unreadable diff input: {broken}",
+                                 "fix": "Both inputs must be valid results files."}]})
+        return base
+
+    def keyed(data):
+        out = {}
+        for case in data["cases"]:
+            if isinstance(case, dict) and isinstance(case.get("query"), str):
+                key = " ".join(case["query"].lower().split())
+                out.setdefault(key, case)
+        return out
+
+    prev_map, curr_map = keyed(prev), keyed(curr)
+    flips, expectation_changed = [], []
+    for key, c in curr_map.items():
+        p = prev_map.get(key)
+        if p is None:
+            continue
+        exp_p, exp_c = p.get("expected"), c.get("expected")
+        if exp_p != exp_c:
+            expectation_changed.append({"query": c.get("query"),
+                                        "prev": exp_p, "curr": exp_c})
+            continue
+        if exp_c == "borderline":
+            continue  # borderline asserts nothing — no regression possible
+        v_p, v_c = p.get("verdict"), c.get("verdict")
+        if v_p in ("HIT", "MISS") and v_c in ("HIT", "MISS") and v_p != v_c:
+            flips.append({"query": c.get("query"), "expected": exp_c,
+                          "prev": {"judged": p.get("judged"), "verdict": v_p},
+                          "curr": {"judged": c.get("judged"), "verdict": v_c}})
+    added = [c.get("query") for k, c in curr_map.items() if k not in prev_map]
+    removed = [p.get("query") for k, p in prev_map.items() if k not in curr_map]
+    checks = []
+    for f in flips:
+        checks.append({"id": "D01", "severity": "error",
+                       "message": f"flipped {f['prev']['verdict']} → {f['curr']['verdict']}"
+                                  f" (expected={f['expected']!r}): {f['query']}",
+                       "fix": "Re-check the skill change that altered this row."})
+    checks.extend({"id": "D02", "severity": "info",
+                   "message": f"expectation changed {e['prev']!r} → {e['curr']!r}: "
+                              f"{e['query']} (suite edited — not scored as a flip)",
+                   "fix": ""} for e in expectation_changed)
+    if added:
+        checks.append({"id": "D03", "severity": "info",
+                       "message": f"{len(added)} new quer{'y' if len(added) == 1 else 'ies'} "
+                                  f"vs previous run (coverage grew)", "fix": ""})
+    if removed:
+        checks.append({"id": "D04", "severity": "info",
+                       "message": f"{len(removed)} queries dropped vs previous run "
+                                  "(coverage shrank)", "fix": ""})
+    if not flips and not expectation_changed and not added and not removed:
+        checks.append({"id": "D00", "severity": "pass",
+                       "message": "No flipped rows — behavior identical to previous run.",
+                       "fix": ""})
+    base.update({"ok": not flips, "hard_failures": len(flips),
+                 "warnings": 0, "infos": sum(c["severity"] == "info" for c in checks),
+                 "flips": flips, "expectation_changed": expectation_changed,
+                 "added": added, "removed": removed, "checks": checks})
+    return base
+
+
 def main(argv=None) -> int:
     class _Parser(argparse.ArgumentParser):
         def error(self, message):  # usage errors exit 1; 2 is reserved for hard failures
@@ -355,9 +536,15 @@ def main(argv=None) -> int:
 
     ap = _Parser(description="trigger-doctor mechanical pre-flight")
     ap.add_argument("target",
-                    help="SKILL.md path, skill directory, or suite .json (with --suite)")
+                    help="SKILL.md path, skill directory, suite .json (with --suite), "
+                         "results .json (with --results, or as the NEW run with --diff)")
     ap.add_argument("--suite", action="store_true",
                     help="validate a trigger suite JSON instead of a skill")
+    ap.add_argument("--results", action="store_true",
+                    help="validate a Step-5 results file (schema + score arithmetic)")
+    ap.add_argument("--diff", metavar="PREVIOUS_RESULTS",
+                    help="regression diff: compare target (new results) against "
+                         "the given previous results file")
     args = ap.parse_args(argv)
 
     path = Path(args.target)
@@ -373,7 +560,21 @@ def main(argv=None) -> int:
             return 1
         path = candidate
 
-    report = check_suite(path) if args.suite else check_skill(path)
+    if args.diff:
+        prev = Path(args.diff)
+        if not prev.exists():
+            print(json.dumps({"tool": TOOL, "ok": False,
+                              "error": f"previous results not found: {prev}"}))
+            return 1
+        report = diff_results(prev, path)
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        if report.get("structural_error"):  # could not compare at all
+            return 2
+        return 3 if report["flips"] else 0
+    if args.results:
+        report = check_results(path)
+    else:
+        report = check_suite(path) if args.suite else check_skill(path)
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0 if report["ok"] else 2
 

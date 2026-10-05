@@ -41,7 +41,8 @@ py scripts\parse_skill.py <path-to-SKILL.md>        # Windows (no python3 there)
 ```
 
 The script validates mechanical facts (frontmatter, limits, description
-qualities) and exits `2` on hard failures (`1` on usage/IO errors). Treat its
+qualities) and exits `2` on hard failures (`1` on usage/IO errors; `--diff`
+exits `3` when the regression diff finds flipped rows). Treat its
 JSON findings as ground truth for structure. It is **not a security scanner**
 — `W07` only flags danger signals for manual review. If it reports hard
 failures, fix those with the user before continuing — a skill that fails
@@ -106,9 +107,19 @@ Two files, never one:
    "score": {"hits": 11, "misses": 1, "borderline": 0}}
   ```
 
-On a re-run, diff the new results against the previous results file and flag
-flipped rows — that is the regression diff. Print the report per
-`references/report-format.md`.
+On a re-run, make the regression diff mechanical, not from memory:
+
+```bash
+python3 scripts/parse_skill.py suites/<skill-name>.results.json --results
+# validates schema + score arithmetic (exit 2 on mismatch)
+python3 scripts/parse_skill.py suites/<skill-name>.results.json \
+  --diff suites/<skill-name>.previous.results.json
+# exit 3 = flipped rows (regression), 0 = identical behavior,
+# 2 = structurally broken input
+```
+
+Flag the rows the diff names — that is the regression diff. Print the
+report per `references/report-format.md`.
 
 **Filename guard:** use the target's `name` field for `<skill-name>` only if
 it passes the lowercase-kebab check (F02). If it fails, or contains `..`, a

@@ -3,6 +3,29 @@
 All notable changes to trigger-doctor are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.3] - 2026-10-05
+
+### Fixed
+- **W07 network signal retuned in both directions** (external-review finding):
+  it fired on inline-literal API examples (`curl -d '{"q": "x"}'` — a normal
+  documentation shape) while staying silent on multi-line exfil written with
+  backslash continuations — the most common real-world layout. Now the scan
+  joins continuations before matching and fires only on **file-sourced**
+  uploads (`-d @file`, `-F name=@file`, `-T path`, `--post-file`), the actual
+  exfil shape. 0 fires on the 69-skill local corpus, exfil fixtures caught in
+  both layouts.
+
+### Added
+- **Mechanical regression diff**: `--results` validates a results file
+  (schema, verdict consistency, score arithmetic — R01–R05) and `--diff
+  <previous>` flags flipped verdict rows (D01) as data, not agent memory.
+  Exit contract: 0 clean / 1 usage / 2 hard or broken diff input / 3 flipped
+  rows found.
+- CI: three new steps — W07 two-direction contract (multi-line exfil caught,
+  inline example silent), results-file validation with score-mismatch
+  negative control, and the full diff contract (identical → 0, flip → 3,
+  broken → 2, flip rows named).
+
 ## [0.1.2] - 2026-10-05
 
 ### Fixed
