@@ -1,5 +1,5 @@
 <h1>
-  <img src="assets/icon.png" width="44" height="44" alt="trigger-doctor icon — robot doctor with stethoscope"/> trigger-doctor
+  <img src="assets/icon.png" width="40" height="40" align="middle" alt="trigger-doctor icon — robot doctor with stethoscope"/> trigger-doctor
 </h1>
 
 <p>🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions and regression suites</p>
