@@ -11,12 +11,6 @@
   <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
 </p>
 
-<div align="center">
-  <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
-</div>
-
----
-
 **Behavioral testing for skill triggers.** Most skills don't die of broken
 logic — they die of never being opened. The `description` field is the gate
 agents use to decide whether to load a skill, and almost nobody tests it.
@@ -27,6 +21,12 @@ doesn't, prescribes a fixed description, and saves a regression suite you
 re-run after every model update. It works with any runtime that follows the
 open standard — **one `SKILL.md`, 79 agents** (Claude Code, Hermes, Codex,
 Cursor, Gemini CLI, GitHub Copilot, …).
+
+<div align="center">
+  <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
+</div>
+
+---
 
 ## Quick start
 
