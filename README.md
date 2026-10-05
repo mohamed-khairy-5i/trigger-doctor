@@ -4,14 +4,15 @@
 
 <p>🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions and regression suites</p>
 
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
+  <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
+  <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
+  <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
+</p>
+
 <div align="center">
   <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
-  <p>
-    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
-    <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
-    <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
-    <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
-  </p>
 </div>
 
 ---
