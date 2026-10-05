@@ -1,10 +1,14 @@
 <div align="center">
-  <img src="docs/social-preview.png" alt="trigger-doctor — Diagnose your agent skills" width="100%"/>
+  <img src="assets/icon.png" width="160" alt="trigger-doctor icon — robot doctor with stethoscope"/>
+  <h1>trigger-doctor</h1>
+  <p>🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions &amp; regression suites</p>
+  <p>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
+    <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
+    <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
+    <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
+  </p>
 </div>
-
-<h1 align="center">
-  <img src="assets/icon.png" width="60" height="60" alt="trigger-doctor icon"/> trigger-doctor
-</h1>
 
 **Behavioral testing for skill triggers.** Most skills don't die of broken
 logic — they die of never being opened. The `description` field is the gate
