@@ -1,23 +1,54 @@
 <div align="center">
-  <img src="assets/icon.png" width="160" alt="trigger-doctor icon — robot doctor with stethoscope"/>
-  <h1>trigger-doctor</h1>
-  <p>🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions &amp; regression suites</p>
-  <p>
-    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
-    <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
-    <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
-    <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
-  </p>
+  <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
 </div>
+
+<h1 align="center">
+  <img src="assets/icon.png" width="48" height="48" alt="trigger-doctor icon — robot doctor with stethoscope"/> trigger-doctor
+</h1>
+
+<p align="center">
+  🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions &amp; regression suites<br/>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
+  <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
+  <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
+  <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
+</p>
 
 **Behavioral testing for skill triggers.** Most skills don't die of broken
 logic — they die of never being opened. The `description` field is the gate
 agents use to decide whether to load a skill, and almost nobody tests it.
 
-trigger-doctor is an [Agent Skills](https://agentskills.io) skill that
-diagnoses whether a skill will actually trigger, finds *why* it doesn't,
-prescribes a fixed description, and saves a regression suite for the next
-model update.
+trigger-doctor is an open-source [Agent Skills](https://agentskills.io) skill
+that diagnoses whether another skill will actually trigger, finds *why* it
+doesn't, prescribes a fixed description, and saves a regression suite you
+re-run after every model update. It works with any runtime that follows the
+open standard — **one `SKILL.md`, 79 agents** (Claude Code, Hermes, Codex,
+Cursor, Gemini CLI, GitHub Copilot, …).
+
+## Quick start
+
+**One command — 79 agents supported (open standard, no per-agent adapters):**
+
+```bash
+npx skills add mohamed-khairy-5i/trigger-doctor
+```
+
+Then ask your agent: *"check my skill"*.
+
+The CLI knows each agent's directory — one SKILL.md, every agent:
+
+| Agent | Lands in (global) |
+|---|---|
+| Claude Code | `~/.claude/skills/trigger-doctor/` |
+| Hermes Agent | `~/.hermes/skills/trigger-doctor/` |
+| Codex | `~/.codex/skills/trigger-doctor/` |
+| Cursor | `~/.cursor/skills/trigger-doctor/` |
+| Gemini CLI | `~/.gemini/skills/trigger-doctor/` |
+| GitHub Copilot | `~/.copilot/skills/trigger-doctor/` |
+
+Target only specific agents: `npx skills add mohamed-khairy-5i/trigger-doctor -a claude-code -a hermes-agent`.
+
+**Manual:** copy this folder into your agent's skills directory.
 
 ## Why it's different
 
@@ -31,6 +62,24 @@ model update.
 
 The behavioral layer is the moat: only a skill **inside** an agent can
 simulate the agent's own trigger decision.
+
+## The 8 failure modes it diagnoses
+
+Every simulation failure maps to a named, fixable principle from
+[`references/trigger-science.md`](references/trigger-science.md) —
+**under-triggering** (the skill never fires) and **over-triggering**
+(the skill hijacks conversations it shouldn't):
+
+| ID | Name | Class | Fix |
+|---|---|---|---|
+| P1 | Shy Description | under | add imperative `Use this skill when...` |
+| P2 | Implementation-Speak | under | describe *when*, not *how* |
+| P3 | Vocabulary Gap | under | quote the user's real phrases |
+| P4 | Implicit Domain | under | claim utterances that never name the domain |
+| P5 | Budget Cut | under | front-load cues inside the 1024-char limit |
+| P6 | No Boundary | over | add one `Do not use for...` line |
+| P7 | Broad Nouns | over | qualify every generic "test/check/improve" |
+| P8 | Hijack Risk | over | respect the simple-task exemption |
 
 ## The protocol
 
@@ -54,35 +103,30 @@ simulate the agent's own trigger decision.
 ## Self-testing
 
 The first patient is the doctor itself: `suites/trigger-doctor.json`
-(12 cases) guards trigger-doctor's own description. Install it next to your
-other skills and ask: *"check my skill"*.
+(12 cases — 8 positive, 4 negative) guards trigger-doctor's own description.
+A real worked report lives in
+[`examples/example-report.md`](examples/example-report.md). Install it next
+to your other skills and ask: *"check my skill"*.
 
-## Install
+## FAQ
 
-**One command — 79 agents supported (open standard, no per-agent adapters):**
+**Why doesn't my skill ever trigger?**
+Almost always the description: no imperative `Use this skill when...` cues,
+none of the user's actual words, no proactive claim. trigger-doctor
+classifies it (P1, P2, P3, P4) and hands you a rewritten description.
 
-```bash
-npx skills add mohamed-khairy-5i/trigger-doctor
-```
+**Why does my skill trigger too often?**
+A missing boundary. One `Do not use for...` line fixes over-triggering
+(P6, P7, P8) and stops the skill from hijacking adjacent tools.
 
-The CLI knows each agent's directory — one SKILL.md, every agent:
+**Is this just a linter?**
+No. Linters grade text mechanics. trigger-doctor simulates the agent's own
+trigger decision against a labeled test suite — the official eval format —
+then treats what it finds and remembers it as a regression suite.
 
-| Agent | Lands in (global) |
-|---|---|
-| Claude Code | `~/.claude/skills/trigger-doctor/` |
-| Hermes Agent | `~/.hermes/skills/trigger-doctor/` |
-| Codex | `~/.codex/skills/trigger-doctor/` |
-| Cursor | `~/.cursor/skills/trigger-doctor/` |
-| Gemini CLI | `~/.gemini/skills/trigger-doctor/` |
-| GitHub Copilot | `~/.copilot/skills/trigger-doctor/` |
-
-Target only specific agents: `npx skills add mohamed-khairy-5i/trigger-doctor -a claude-code -a hermes-agent`.
-
-**Manual:** copy this folder into your agent's skills directory.
-
-**Docs:** the skill carries its own references (`references/trigger-science.md`,
-`references/report-format.md`), and `examples/example-report.md` shows a real
-worked report from the self-test — no external documentation site needed.
+**Does it change my skill?**
+No. It prescribes a copy-paste-ready description and saves a suite; you
+decide what to apply.
 
 ## Honesty rule
 
