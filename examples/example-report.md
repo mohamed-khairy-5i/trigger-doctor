@@ -18,7 +18,7 @@ $ python3 scripts/parse_skill.py SKILL.md        # run inside the reconstructed 
 → 1 finding: I02 (info): "No boundary line (when NOT to use it) —
   over-trigger risk is unprotected."
 → all hard checks green: frontmatter ✅ name ✅ description 880/1024 ✅
-  body 74 lines ✅ references resolve ✅
+  body within the progressive-disclosure budget ✅ references resolve ✅
 ```
 
 AFTER — current `SKILL.md` (1002 chars):
@@ -34,7 +34,9 @@ job.` (122 chars) from the description, then re-run.
 
 ## Simulation score (suites/trigger-doctor.json — 12 cases)
 
-- Positives hit: **8/8** — Negatives respected: **4/4** — Borderline: 1
+- Positives hit: **8/8** — Negatives respected: **4/4** — Borderline
+  judged: 1 (row 11, BEFORE state only; the shipped 12-case suite is
+  8 positive / 4 negative with no borderline rows)
 - Verdict against the BEFORE state: **NEEDS PRESCRIPTION** → applied → **HEALTHY**
 
 ## Per-query table
@@ -67,9 +69,14 @@ BEFORE (880 chars, reconstructed) — ended at:
 > ...Also use it proactively right after creating or editing any skill, and
 > when reviewing third-party skills before installing them.
 
-AFTER (1002 chars) — one boundary line appended:
-> Do not use for ordinary code testing, CI setup, or creating a brand-new
-> skill from scratch — that is skill-creator's job.
+AFTER (1002 chars) — one boundary line appended (copy-paste-ready):
+
+```yaml
+---
+name: trigger-doctor
+description: Diagnose and repair agent-skill triggering. Use this skill whenever a user wants to check whether a skill will actually activate, complains that a skill never fires or fires too often, asks to test, audit, or improve a SKILL.md description, or wants a regression suite saved before a model or agent update — even if they just say "check my skill", "why isn't my skill working", "make my skill trigger", or paste a SKILL.md without explaining why. It runs deterministic validation, simulates labeled user queries against the description, diagnoses under- and over-triggering against the official Agent Skills description science, prescribes a rewritten ready-to-paste description, and persists an eval suite for re-testing after agent or model updates. Also use it proactively right after creating or editing any skill, and when reviewing third-party skills before installing them. Do not use for ordinary code testing, CI setup, or creating a brand-new skill from scratch — that is skill-creator's job.
+---
+```
 
 Expected effect per row: 11 flips to `skip`; rows 1–8 unchanged; budget
 still within the 1024 limit (880 → 1002).
@@ -78,7 +85,14 @@ still within the 1024 limit (880 → 1002).
 
 Simulated. For runtime proof, install the skill and try it live.
 
-## Saved suite
+## Saved files
 
-`suites/trigger-doctor.json` — re-run after every agent/model update and
-diff flipped verdicts.
+- `suites/trigger-doctor.json` — baseline (expectations only); never
+  overwritten.
+- `suites/trigger-doctor.results.json` — the latest run's judged verdicts
+  (same schema as the report score), with
+  `suites/trigger-doctor.previous.results.json` snapshotted before each
+  re-run so `--diff` always has a comparison source.
+
+Re-run after every agent/model update — `--diff` exits `3` the moment a
+verdict flips.

@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-TOOL = "trigger-doctor.parse_skill/0.1"
+TOOL = "trigger-doctor.parse_skill/0.1.4"
 
 DESC_LIMIT = 1024   # official Agent Skills description budget
 NAME_LIMIT = 64     # official name budget
@@ -33,13 +33,15 @@ BODY_LIMIT = 500    # progressive-disclosure comfort ceiling
 # Word-boundary patterns, not bare substrings: "that is" is a common English
 # connective (not boundary language) and "triggers notifications" is not an
 # imperative to the agent — substring matching produced false signals on both.
+# Whitespace runs are \s+ so multi-space typos cannot defeat a phrase.
 TRIGGER_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
-    r"\buse this skill\b",
-    r"\buse it\b",
-    r"\buse when\b",
-    r"\buse for\b",
+    r"\buse\s+this\s+skill\b",
+    r"\buse\s+it\b",
+    r"\buse\s+when\b",
+    r"\buse\s+for\b",
+    r"\btriggers?\s+when\b",
     r"\bwhenever\b",
-    r"\b(activate|trigger) (this|the) skill\b",
+    r"\b(activate|trigger)\s+(this|the)\s+skill\b",
 ))
 BOUNDARY_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"\bdo not use\b",
@@ -53,6 +55,10 @@ BOUNDARY_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
     r"\bout of scope\b",
     r"\bskip this\b",
     r"\breserved for\b",
+    r"\bnot to be used\b",
+    r"\bisn't for\b",
+    r"\bis not for\b",
+    r"\bshould not be\b",
 ))
 # A mention whose line says the file is produced at runtime (save/write/create
 # …) is not a shipped asset — flagging it as missing was a false alarm.
@@ -78,11 +84,34 @@ DANGER_SIGNALS = (
                 r"disregard (?:all )?(?:previous|above) instructions", re.IGNORECASE)),
 )
 FIRST_PERSON = re.compile(r"\b(i|i'm|i'll|i've|my|me|mine|we|our)\b", re.IGNORECASE)
-QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
+# Single-quoted spans only count as quotes when not glued to a word char on
+# either side — otherwise a contraction apostrophe (can't, user's) pairs with
+# the NEXT quote and leaves quoted text unstripped, firing W04 falsely.
+QUOTED = re.compile(r"\"[^\"]*\"|(?<![\w])'[^']*'(?![\w])")
 LOCAL_REF = re.compile(
     r"\b((?:scripts|references|assets|suites)/[A-Za-z0-9_./-]+\.[A-Za-z0-9]+)"
 )
 PLACEHOLDER = re.compile(r"\b(TODO|TBD|FIXME|XXX)\b")
+
+
+def _read_text(path: Path) -> tuple[str | None, dict]:
+    """Read UTF-8 text (BOM tolerated). On decode/IO failure return a finding."""
+    try:
+        return path.read_text(encoding="utf-8-sig"), {}
+    except UnicodeDecodeError:
+        return None, {"id": "F00", "severity": "error",
+                      "message": f"not valid UTF-8 text: {path}",
+                      "fix": "SKILL.md and JSON inputs must be UTF-8 text files."}
+    except OSError as exc:
+        return None, {"id": "F00", "severity": "error",
+                      "message": f"cannot read {path}: {exc}",
+                      "fix": "Check the path and permissions."}
+
+
+def _io_report(mode: str, path: Path, finding: dict) -> dict:
+    return {"tool": TOOL, "mode": mode, "target": str(path), "ok": False,
+            "io_error": True, "hard_failures": 1, "warnings": 0, "infos": 0,
+            "stats": {}, "checks": [finding]}
 
 
 def split_frontmatter(text: str):
@@ -124,7 +153,9 @@ def check_skill(path: Path) -> dict:
     def add(fid: str, sev: str, msg: str, fix: str = "") -> None:
         findings.append({"id": fid, "severity": sev, "message": msg, "fix": fix})
 
-    text = path.read_text(encoding="utf-8")
+    text, io_err = _read_text(path)
+    if text is None:
+        return _io_report("skill", path, io_err)
     fm, body = split_frontmatter(text)
     fields = parse_fields(fm) if fm is not None else {}
     name = fields.get("name", "").strip()
@@ -268,7 +299,17 @@ def check_suite(path: Path) -> dict:
         findings.append({"id": fid, "severity": sev, "message": msg, "fix": fix})
 
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except UnicodeDecodeError:
+        return _io_report("suite", path,
+                          {"id": "F00", "severity": "error",
+                           "message": f"not valid UTF-8 text: {path}",
+                           "fix": "JSON inputs must be UTF-8 text files."})
+    except OSError as exc:
+        return _io_report("suite", path,
+                          {"id": "F00", "severity": "error",
+                           "message": f"cannot read {path}: {exc}",
+                           "fix": "Check the path and permissions."})
     except json.JSONDecodeError as exc:
         add("S00", "error", f"Invalid JSON: {exc}", "Fix the JSON syntax.")
         return {
@@ -338,7 +379,8 @@ def check_suite(path: Path) -> dict:
         add("S05", "error", f"Only {pos} positive cases — recall is untested.")
     if neg < 2:
         add("S06", "error",
-            f"Only {neg} negative cases — over-triggering goes undetected."
+            f"Only {neg} negative case{'s' if neg != 1 else ''} — "
+            "over-triggering goes undetected."
             + (f" ({borderline} borderline rows are not counted as negatives.)"
                if borderline else ""))
     if pos and neg and pos < neg:
@@ -366,8 +408,12 @@ def _load_results(path: Path) -> tuple[dict | None, list]:
     def add(fid: str, sev: str, msg: str, fix: str = "") -> None:
         findings.append({"id": fid, "severity": sev, "message": msg, "fix": fix})
 
+    text, io_err = _read_text(path)
+    if text is None:
+        findings.append(io_err)
+        return None, findings
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(text)
     except json.JSONDecodeError as exc:
         add("R01", "error", f"Invalid JSON: {exc}", "Fix the JSON syntax.")
         return None, findings
@@ -381,21 +427,17 @@ def _load_results(path: Path) -> tuple[dict | None, list]:
     return data, findings
 
 
-def check_results(path: Path) -> dict:
-    """Validate a results file: schema, verdict consistency, score arithmetic."""
-    findings: list = []
+def _validate_results_rows(data: dict, findings: list) -> tuple[dict, int]:
+    """Append R02–R06 findings for every case row; return (counts, duplicates).
 
+    Shared by --results and --diff so a structurally broken row can never be
+    silently skipped by the comparison — the diff refuses to run on it.
+    Strict booleans: JSON `1`/`0` are NOT true/false (suite mode rejects
+    them too — same contract here).
+    """
     def add(fid: str, sev: str, msg: str, fix: str = "") -> None:
         findings.append({"id": fid, "severity": sev, "message": msg, "fix": fix})
 
-    data, load = _load_results(path)
-    findings.extend(load)
-    if data is None:
-        return {"tool": TOOL, "mode": "results", "target": str(path), "ok": False,
-                "hard_failures": 1, "warnings": 0, "infos": 0,
-                "stats": {}, "checks": findings}
-
-    cases = data["cases"]
     for field in ("run", "agent"):
         if not str(data.get(field) or "").strip():
             add("R05", "warn",
@@ -403,7 +445,9 @@ def check_results(path: Path) -> dict:
                 f'Add "{field}": "<{field}>" at the top.')
 
     counts = {"HIT": 0, "MISS": 0, "borderline": 0}
-    for i, case in enumerate(cases, 1):
+    seen: set = set()
+    duplicates = 0
+    for i, case in enumerate(data["cases"], 1):
         if not isinstance(case, dict):
             add("R02", "error", f"case {i}: not an object.")
             continue
@@ -411,14 +455,25 @@ def check_results(path: Path) -> dict:
                                         case.get("judged"), case.get("verdict"))
         if not isinstance(q, str) or not q.strip():
             add("R02", "error", f"case {i}: missing or blank `query`.")
-        if expected not in (True, False, "borderline"):
+        elif isinstance(expected, bool) or expected == "borderline":
+            key = " ".join(q.lower().split())
+            if key in seen:
+                duplicates += 1
+                add("R06", "warn",
+                    f"case {i}: duplicate query — the first occurrence wins; "
+                    "duplicates can hide a flipped row.",
+                    "Keep one row per query.")
+            seen.add(key)
+        if expected is not True and expected is not False \
+                and expected != "borderline":
             add("R02", "error",
-                f"case {i}: `expected` must be true/false or \"borderline\".")
+                f"case {i}: `expected` must be true/false or \"borderline\" "
+                f"(got {expected!r}) — JSON 1/0 are not booleans.")
         if not isinstance(judged, bool):
-            add("R02", "error", f"case {i}: `judged` must be true or false.")
-        expected_ok = expected in (True, False, "borderline")
-        judged_ok = isinstance(judged, bool)
-        if expected_ok and judged_ok:
+            add("R02", "error",
+                f"case {i}: `judged` must be true or false (got {judged!r}).")
+        if (expected is True or expected is False \
+                or expected == "borderline") and isinstance(judged, bool):
             want = ("borderline" if expected == "borderline"
                     else ("HIT" if judged == expected else "MISS"))
             counts[want] += 1
@@ -440,7 +495,21 @@ def check_results(path: Path) -> dict:
                 add("R04", "error",
                     f"score.{key} is {got!r} but cases contain {want} — "
                     "arithmetic mismatch.", "Recompute the score from the cases.")
+    return counts, duplicates
 
+
+def check_results(path: Path) -> dict:
+    """Validate a results file: schema, verdict consistency, score arithmetic."""
+    data, findings = _load_results(path)
+    if data is None:
+        first = findings[0]
+        if first["id"] == "F00":
+            return _io_report("results", path, first)
+        return {"tool": TOOL, "mode": "results", "target": str(path), "ok": False,
+                "hard_failures": 1, "warnings": 0, "infos": 0,
+                "stats": {}, "checks": findings}
+
+    counts, duplicates = _validate_results_rows(data, findings)
     hard = [f for f in findings if f["severity"] == "error"]
     return {
         "tool": TOOL, "mode": "results", "target": str(path),
@@ -448,27 +517,45 @@ def check_results(path: Path) -> dict:
         "warnings": sum(f["severity"] == "warn" for f in findings),
         "infos": sum(f["severity"] == "info" for f in findings),
         "stats": {"skill": data.get("skill"), "run": data.get("run"),
-                  "cases": len(cases), "hits": counts["HIT"],
-                  "misses": counts["MISS"], "borderline": counts["borderline"]},
+                  "cases": len(data["cases"]), "hits": counts["HIT"],
+                  "misses": counts["MISS"], "borderline": counts["borderline"],
+                  "duplicates": duplicates},
         "checks": findings,
     }
 
 
 def diff_results(prev_path: Path, curr_path: Path) -> dict:
-    """Regression diff: same query, same expectation, verdict flipped."""
-    prev, p_err = _load_results(prev_path)
-    curr, c_err = _load_results(curr_path)
-    stats = {"prev_score": (prev or {}).get("score"), "curr_score": (curr or {}).get("score")}
+    """Regression diff: same query, same expectation, verdict flipped.
+
+    Both inputs must pass FULL results validation first (shared row checks) —
+    a malformed row, an int-as-bool, or a suite-shaped file is a structural
+    error (exit 2), never a silent skip with a false "behavior identical".
+    """
+    prev, p_findings = _load_results(prev_path)
+    curr, c_findings = _load_results(curr_path)
+    p_counts = p_dups = c_counts = c_dups = None
+    if prev is not None:
+        p_counts, p_dups = _validate_results_rows(prev, p_findings)
+    if curr is not None:
+        c_counts, c_dups = _validate_results_rows(curr, c_findings)
+    io_err = next((f for f in (p_findings + c_findings) if f["id"] == "F00"), None)
+    if io_err is not None:
+        broken = prev_path if prev is None else curr_path
+        return {**_io_report("diff", broken, io_err), "against": str(prev_path)}
+    if prev is None or curr is None or \
+            any(f["severity"] == "error" for f in p_findings + c_findings):
+        base = {"tool": TOOL, "mode": "diff", "target": str(curr_path),
+                "against": str(prev_path), "ok": False, "hard_failures": 1,
+                "warnings": 0, "infos": 0, "flips": [], "structural_error": True,
+                "checks": (p_findings + c_findings) or
+                          [{"id": "R01", "severity": "error",
+                            "message": "unreadable diff input",
+                            "fix": "Both inputs must be valid results files."}]}
+        return base
+
+    stats = {"prev_score": prev.get("score"), "curr_score": curr.get("score")}
     base = {"tool": TOOL, "mode": "diff", "target": str(curr_path),
             "against": str(prev_path), "stats": stats}
-    if prev is None or curr is None:
-        broken = (prev_path if prev is None else curr_path)
-        base.update({"ok": False, "hard_failures": 1, "warnings": 0, "infos": 0,
-                     "flips": [], "structural_error": True,
-                     "checks": (p_err + c_err) or [{"id": "R01", "severity": "error",
-                                 "message": f"unreadable diff input: {broken}",
-                                 "fix": "Both inputs must be valid results files."}]})
-        return base
 
     def keyed(data):
         out = {}
@@ -514,14 +601,23 @@ def diff_results(prev_path: Path, curr_path: Path) -> dict:
                                   f"vs previous run (coverage grew)", "fix": ""})
     if removed:
         checks.append({"id": "D04", "severity": "info",
-                       "message": f"{len(removed)} queries dropped vs previous run "
-                                  "(coverage shrank)", "fix": ""})
+                       "message": f"{len(removed)} quer{'y' if len(removed) == 1 else 'ies'} "
+                                  "dropped vs previous run (coverage shrank)",
+                       "fix": ""})
+    total_dups = (p_dups or 0) + (c_dups or 0)
+    if total_dups:
+        checks.append({"id": "D05", "severity": "warn",
+                       "message": f"{total_dups} duplicate query row(s) in the inputs — "
+                                  "first occurrence used per query; a duplicate can "
+                                  "hide a flip.",
+                       "fix": "Keep one row per query and re-run."})
     if not flips and not expectation_changed and not added and not removed:
         checks.append({"id": "D00", "severity": "pass",
                        "message": "No flipped rows — behavior identical to previous run.",
                        "fix": ""})
     base.update({"ok": not flips, "hard_failures": len(flips),
-                 "warnings": 0, "infos": sum(c["severity"] == "info" for c in checks),
+                 "warnings": sum(c["severity"] == "warn" for c in checks),
+                 "infos": sum(c["severity"] == "info" for c in checks),
                  "flips": flips, "expectation_changed": expectation_changed,
                  "added": added, "removed": removed, "checks": checks})
     return base
@@ -546,6 +642,10 @@ def main(argv=None) -> int:
                     help="regression diff: compare target (new results) against "
                          "the given previous results file")
     args = ap.parse_args(argv)
+    if args.diff and (args.suite or args.results):
+        ap.error("--diff cannot be combined with --suite or --results")
+    if args.suite and args.results:
+        ap.error("--suite and --results are mutually exclusive")
 
     path = Path(args.target)
     if not path.exists():
@@ -553,6 +653,10 @@ def main(argv=None) -> int:
                           "error": f"target not found: {path}"}))
         return 1
     if path.is_dir():
+        if args.suite or args.results or args.diff:
+            print(json.dumps({"tool": TOOL, "ok": False,
+                              "error": f"this mode expects a JSON file, got a directory: {path}"}))
+            return 1
         candidate = path / "SKILL.md"
         if not candidate.exists():
             print(json.dumps({"tool": TOOL, "ok": False,
@@ -562,12 +666,14 @@ def main(argv=None) -> int:
 
     if args.diff:
         prev = Path(args.diff)
-        if not prev.exists():
+        if not prev.exists() or not prev.is_file():
             print(json.dumps({"tool": TOOL, "ok": False,
                               "error": f"previous results not found: {prev}"}))
             return 1
         report = diff_results(prev, path)
         print(json.dumps(report, indent=2, ensure_ascii=False))
+        if report.get("io_error"):  # unreadable/undecodable input
+            return 1
         if report.get("structural_error"):  # could not compare at all
             return 2
         return 3 if report["flips"] else 0
@@ -576,6 +682,8 @@ def main(argv=None) -> int:
     else:
         report = check_suite(path) if args.suite else check_skill(path)
     print(json.dumps(report, indent=2, ensure_ascii=False))
+    if report.get("io_error"):
+        return 1
     return 0 if report["ok"] else 2
 
 

@@ -3,6 +3,42 @@
 All notable changes to trigger-doctor are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.4] - 2026-10-05
+
+### Fixed
+- **Diff/results integrity — four holes found by the needle-to-thread audit**:
+  a malformed row (missing/bad `expected`/`judged`/`verdict`) was silently
+  skipped by `--diff`, which could then report "behavior identical" while a
+  real flip hid behind it — diff now runs the full row validation on BOTH
+  inputs and refuses to compare (exit 2). A suite file fed to
+  `--diff`/`--results` was accepted with exit 0 — now rejected. JSON `1`/`0`
+  were accepted as `expected: true/false` (Python `1 == True`) while suite
+  mode rejected them — strict booleans now. Duplicate queries were dropped
+  silently (first occurrence won) and the dropped row could hide a flip —
+  now warned in both modes (R06 in `--results`, D05 in `--diff`).
+- **No more tracebacks**: unreadable or non-UTF-8 inputs (skill, suite,
+  results, diff) produce the usual JSON report and exit 1; `--diff` with a
+  directory as the previous file is a usage error; `--suite/--results/--diff`
+  combinations are mutually exclusive (exit 1).
+- **Docs caught up with reality** (docs-consistency audit): the worked
+  example no longer pins a body-line count that drifts as SKILL.md grows;
+  the Step 5 JSON example is self-consistent (it failed its own `--results`
+  check before); Step 5 now names the `.previous.results.json` snapshot step
+  that `--diff` compares against; "Saved files" naming unified across
+  report-format.md, SKILL.md and the example; the example's AFTER
+  prescription is copy-paste-ready YAML as the format rules require.
+- Heuristic false positives: W04 no longer mis-pairs a contraction
+  apostrophe with the next quote; I02 recognizes "not to be used / is not
+  for / isn't for / should not be"; W02 recognizes "Triggers when..." and
+  survives multi-space typos ("Use   this   skill").
+
+### Added
+- CI step proving the integrity guards (int-as-bool, malformed-verdict diff,
+  suite-as-diff, non-UTF-8 → JSON not traceback).
+- TOOL version string tracks the release (parse_skill/0.1.4).
+- Deliberate non-change: TODO/TBD/FIXME stays case-sensitive — skills ABOUT
+  todo lists are legitimate content, lowercasing the check would flood I03.
+
 ## [0.1.3] - 2026-10-05
 
 ### Fixed
@@ -55,7 +91,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - SKILL.md Step 1: `py` Windows command in the same code block (closes the
   `python3` half-fix) and the not-a-security-scanner scope note.
 - `.gitattributes` — LF everywhere, images binary (no CRLF churn).
-- Git tags: `v0.1.1` (back-tagged to the audit-fix commit) and `v0.1.2`.
+- Git tags: `v0.1.1` (back-tagged to the CI YAML-quote fix) and `v0.1.2`.
 
 ## [0.1.1] - 2026-10-05
 

@@ -102,10 +102,22 @@ Two files, never one:
 
   ```json
   {"skill": "<skill-name>", "run": "<date>", "agent": "<agent/model>",
-   "cases": [{"query": "...", "expected": false, "judged": true,
-              "verdict": "MISS"}],
-   "score": {"hits": 11, "misses": 1, "borderline": 0}}
+   "cases": [
+     {"query": "fix my skill trigger",   "expected": true,  "judged": true,  "verdict": "HIT"},
+     {"query": "write a poem",           "expected": false, "judged": false, "verdict": "HIT"},
+     {"query": "refactor this function", "expected": false, "judged": true,  "verdict": "MISS"}
+   ],
+   "score": {"hits": 2, "misses": 1, "borderline": 0}}
   ```
+
+  The score must equal the mechanical count of the cases — `--results`
+  enforces it (exit 2 on any mismatch). Keep one row per query: a duplicate
+  is warned (R06) and can hide a flip.
+
+Before writing new results, copy the existing results file to
+`suites/<skill-name>.previous.results.json` — that snapshot is what
+`--diff` compares against. Results are overwritten on every run; the
+snapshot is not.
 
 On a re-run, make the regression diff mechanical, not from memory:
 
@@ -131,7 +143,7 @@ name. Write only inside the skill's own `suites/`, never outside it.
 Follow `references/report-format.md` exactly — users learn to trust a
 consistent shape. Minimum sections: Mechanical, Simulation score, per-query
 table, Diagnosis (with principle names), Prescription (BEFORE/AFTER), Caveat,
-Saved suite path.
+Saved files (baseline suite + results).
 
 ## Scope
 
