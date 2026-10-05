@@ -62,8 +62,10 @@ skills directory. Then ask your agent: *"check my skill"*.
 | Regression | ❌ | ✅ labeled suite saved in git, re-run after model updates |
 | Scope | one platform | ✅ any [Agent Skills](https://agentskills.io) runtime (79 agents via `npx skills add`) |
 
-The behavioral layer is the moat: only a skill **inside** an agent can
-simulate the agent's own trigger decision.
+The behavioral layer is the differentiator: trigger-doctor judges the gate
+the same way a runtime loads it — from `name` + `description` alone. That is
+a **simulation** (see the honesty rule), chosen because it is 10–100×
+cheaper than live-agent runs — not a claim to runtime truth.
 
 ## The 8 failure modes it diagnoses
 

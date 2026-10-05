@@ -3,6 +3,37 @@
 All notable changes to trigger-doctor are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.1.2] - 2026-10-05
+
+### Fixed
+- **PERSIST split into two files**: the baseline suite (expectations, never
+  overwritten without explicit user go-ahead) and
+  `suites/<skill-name>.results.json` (judged verdicts, written every run) —
+  the regression diff finally has a data source instead of "overwrite
+  baseline" + "diff against previous" contradicting each other.
+- **Path-traversal hardening**: Step 5 filename guard — the target's `name`
+  is used for filenames only if it passes the lowercase-kebab check (F02);
+  `..`, drive letters, and absolute paths are refused (write inside the
+  skill's own `suites/` only).
+- `S06` no longer silently punishes replaced negatives: the message now
+  notes how many borderline rows are excluded from the negative count.
+- `example-report.md`: the BEFORE state is framed purely as a **constructed
+  demo** — no residual claim about unrecorded history.
+- README: the "behavioral layer is the moat" line replaced with an honest
+  framing — simulation chosen for cost (10–100× cheaper), not a claim to
+  runtime truth.
+
+### Added
+- `W07` danger-signal scan (warn-level; the pre-flight is explicitly **not**
+  a security audit): credential paths (`.aws/credentials`, `.ssh/id_*`,
+  `id_rsa`, `.netrc`), network calls that upload data (`curl`/`wget` with
+  `-d`/`-F`/`-T`/`--post-*`), and prompt-injection markers
+  (`<!-- SYSTEM -->`, "ignore previous instructions").
+- SKILL.md Step 1: `py` Windows command in the same code block (closes the
+  `python3` half-fix) and the not-a-security-scanner scope note.
+- `.gitattributes` — LF everywhere, images binary (no CRLF churn).
+- Git tags: `v0.1.1` (back-tagged to the audit-fix commit) and `v0.1.2`.
+
 ## [0.1.1] - 2026-10-05
 
 ### Fixed

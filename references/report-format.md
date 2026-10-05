@@ -42,8 +42,10 @@ Expected effect per failed row.
 ## Caveat
 Simulated. For runtime proof, install the skill and try it live.
 
-## Saved suite
-suites/<skill-name>.json — re-run after every agent/model update.
+## Saved files
+- `suites/<skill-name>.json` — baseline (expectations only); never overwritten.
+- `suites/<skill-name>.results.json` — this run's judged verdicts; the
+  regression diff compares it against the previous results file.
 ```
 
 Rules:
@@ -52,4 +54,6 @@ Rules:
 - Every Diagnosis line must name a principle (P1–P8) — no vibes.
 - The AFTER block must be copy-paste-ready YAML.
 - If the suite existed before (regression run), add a `Regression diff`
-  section listing rows whose verdict flipped.
+  section listing rows whose verdict flipped — diff the new
+  `<skill-name>.results.json` against the previous results file, never
+  against the baseline (expectations do not carry verdicts).

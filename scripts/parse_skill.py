@@ -54,6 +54,20 @@ BOUNDARY_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
 # …) is not a shipped asset — flagging it as missing was a false alarm.
 RUNTIME_OUTPUT_VERB = re.compile(
     r"\b(save|write|create|store|persist|export|record)\b", re.IGNORECASE)
+# Security-relevant content signals. Warn-level pointers for the human/agent
+# review — explicitly NOT a security audit and NOT a verdict on intent.
+DANGER_SIGNALS = (
+    ("credential path referenced",
+     re.compile(r"\.aws[/\\]credentials|\.ssh[/\\]id_|(?:^|[/\\])id_rsa\b|\.netrc\b",
+                re.IGNORECASE)),
+    ("network call with uploaded data",
+     re.compile(r"\b(?:curl|wget)\b[^\n]*\s(?:--data(?:-binary|-raw)?|-d\b|-F\b|"
+                r"--form\b|--upload-file\b|-T\b|--request\b|--post-data\b|--post-file\b)",
+                re.IGNORECASE)),
+    ("prompt-injection marker",
+     re.compile(r"<!--\s*(?:SYSTEM|AI)\b|ignore (?:all )?previous instructions|"
+                r"disregard (?:all )?(?:previous|above) instructions", re.IGNORECASE)),
+)
 FIRST_PERSON = re.compile(r"\b(i|i'm|i'll|i've|my|me|mine|we|our)\b", re.IGNORECASE)
 QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
 LOCAL_REF = re.compile(
@@ -212,6 +226,14 @@ def check_skill(path: Path) -> dict:
         add("I03", "info", "Placeholder markers (TODO/TBD/FIXME) left in body.",
             "Resolve or remove them.")
 
+    danger = [label for label, pat in DANGER_SIGNALS if pat.search(text)]
+    if danger:
+        add("W07", "warn",
+            "Security-relevant content signals (manual review required): "
+            + "; ".join(danger),
+            "Verify with the user that each is intentional — the pre-flight "
+            "is not a security audit.")
+
     hard = [f for f in findings if f["severity"] == "error"]
     return {
         "tool": TOOL,
@@ -292,6 +314,8 @@ def check_suite(path: Path) -> dict:
     n = len(cases)
     pos = sum(1 for c in cases if isinstance(c, dict) and c.get("should_trigger") is True)
     neg = sum(1 for c in cases if isinstance(c, dict) and c.get("should_trigger") is False)
+    borderline = sum(1 for c in cases if isinstance(c, dict)
+                     and c.get("should_trigger") == "borderline")
 
     if n < 4:
         add("S04", "error", f"Only {n} cases — too thin to say anything.")
@@ -301,7 +325,9 @@ def check_suite(path: Path) -> dict:
         add("S05", "error", f"Only {pos} positive cases — recall is untested.")
     if neg < 2:
         add("S06", "error",
-            f"Only {neg} negative cases — over-triggering goes undetected.")
+            f"Only {neg} negative cases — over-triggering goes undetected."
+            + (f" ({borderline} borderline rows are not counted as negatives.)"
+               if borderline else ""))
     if pos and neg and pos < neg:
         add("S07", "warn", "More negatives than positives — the skill is being starved.")
 
@@ -315,8 +341,7 @@ def check_suite(path: Path) -> dict:
         "warnings": sum(f["severity"] == "warn" for f in findings),
         "infos": sum(f["severity"] == "info" for f in findings),
         "stats": {"skill": skill, "cases": n, "positive": pos, "negative": neg,
-                  "borderline": sum(1 for c in cases if isinstance(c, dict)
-                                    and c.get("should_trigger") == "borderline")},
+                  "borderline": borderline},
         "checks": findings,
     }
 

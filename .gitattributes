@@ -1,0 +1,6 @@
+# Normalize line endings: LF everywhere (repo + working tree), no CRLF churn.
+* text=auto eol=lf
+
+# Binary assets — never touch.
+*.png binary
+*.ico binary

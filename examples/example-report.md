@@ -1,10 +1,11 @@
 # 🩺 Trigger Report — trigger-doctor (worked example)
 
 > A **reproducible** demonstration: trigger-doctor's first patient was itself
-> during the v0.1.0 self-test. The BEFORE state below is a **reconstruction**
-> — the original pre-commit draft was never captured in git — rebuilt by
-> removing the boundary sentence from the description (1002 − 122 = 880
-> chars). Every command in this report can be re-run to reproduce its output.
+> during the v0.1.0 self-test. The BEFORE state below is a **constructed
+> demo**, not a historical record: it was made by removing the boundary
+> sentence from the current description (1002 − 122 = 880 chars). No claim
+> is made about any earlier version of this file. Every command re-runs to
+> reproduce its output.
 
 **Honesty label:** simulation of trigger judgment, not a runtime guarantee.
 
@@ -27,7 +28,7 @@ $ python3 scripts/parse_skill.py SKILL.md
 → Result: PASS — 0 errors, 0 warnings, 0 infos
 ```
 
-Reconstruction recipe: strip ` Do not use for ordinary code testing, CI
+Demo recipe: strip ` Do not use for ordinary code testing, CI
 setup, or creating a brand-new skill from scratch — that is skill-creator's
 job.` (122 chars) from the description, then re-run.
 
