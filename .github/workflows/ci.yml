@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  self-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Mechanical pre-flight on own SKILL.md
+        run: python3 scripts/parse_skill.py SKILL.md
+
+      - name: Validate self-test suite (12 cases)
+        run: python3 scripts/parse_skill.py suites/trigger-doctor.json --suite
+
+      - name: Borderline is accepted and counted (S10, not S02)
+        run: |
+          cat > /tmp/borderline.json << 'JSON'
+          {"skill": "t", "cases": [
+            {"query": "fix my skill trigger", "should_trigger": true},
+            {"query": "check my skill", "should_trigger": true},
+            {"query": "audit this skill description", "should_trigger": true},
+            {"query": "write a poem", "should_trigger": false},
+            {"query": "set up CI", "should_trigger": false},
+            {"query": "maybe about skill triggering", "should_trigger": "borderline"}
+          ]}
+          JSON
+          python3 scripts/parse_skill.py /tmp/borderline.json --suite
+
+      - name: Negative control — broken skill must hard-fail with exit 2
+        run: |
+          printf 'not a skill\n' > /tmp/broken.md
+          if python3 scripts/parse_skill.py /tmp/broken.md > /dev/null 2>&1; then
+            echo "::error::broken fixture unexpectedly passed"
+            exit 1
+          fi
+
+      - name: Usage error exits 1 (CI contract: 0 clean / 1 usage / 2 hard)
+        run: |
+          set +e
+          python3 scripts/parse_skill.py > /dev/null 2>&1
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "::error::expected exit 1 for usage error, got $code"
+            exit 1
+          fi

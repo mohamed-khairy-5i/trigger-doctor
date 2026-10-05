@@ -8,7 +8,8 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
   <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
   <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
-  <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
+  <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">&nbsp;
+  <a href="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
 **Behavioral testing for skill triggers.** Most skills don't die of broken

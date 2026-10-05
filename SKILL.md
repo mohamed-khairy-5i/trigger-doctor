@@ -38,11 +38,15 @@ Run:
 python3 scripts/parse_skill.py <path-to-SKILL.md>
 ```
 
+Run from this skill's own directory so the relative `scripts/` path resolves.
+On Windows there is no `python3` — use the launcher instead:
+`py scripts\parse_skill.py <path-to-SKILL.md>`.
+
 The script validates mechanical facts (frontmatter, limits, description
-qualities) and exits `2` on hard failures. Treat its JSON findings as ground
-truth for structure. If it reports hard failures, fix those with the user
-before continuing — a skill that fails parsing will misbehave in ways no
-simulation can fix.
+qualities) and exits `2` on hard failures (`1` on usage/IO errors). Treat its
+JSON findings as ground truth for structure. If it reports hard failures, fix
+those with the user before continuing — a skill that fails parsing will
+misbehave in ways no simulation can fix.
 
 ### Step 2 — SIMULATE (behavioral)
 
@@ -61,7 +65,8 @@ Then judge each query honestly: *loading only the target's `name` +
 `description` into mind — would you open this skill for this utterance?*
 Apply the official nuance: simple one-step tasks that basic tools already
 handle tend not to trigger any skill; mark such rows `borderline` rather than
-forcing a verdict.
+forcing a verdict. The suite validator accepts `"borderline"` and counts it
+(S10) without scoring it as a hit or a miss.
 
 ### Step 3 — DIAGNOSE
 

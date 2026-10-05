@@ -26,14 +26,34 @@ NAME_LIMIT = 64     # official name budget
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 BODY_LIMIT = 500    # progressive-disclosure comfort ceiling
 
-TRIGGER_PHRASES = (
-    "use this skill", "use when", "use for", "whenever",
-    "use it", "activates", "trigger",
-)
-BOUNDARY_PHRASES = (
-    "do not use", "don't use", "not for", "avoid using",
-    "instead of", "outside of", "is the job of", "that is",
-)
+# Word-boundary patterns, not bare substrings: "that is" is a common English
+# connective (not boundary language) and "triggers notifications" is not an
+# imperative to the agent — substring matching produced false signals on both.
+TRIGGER_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"\buse this skill\b",
+    r"\buse it\b",
+    r"\buse when\b",
+    r"\buse for\b",
+    r"\bwhenever\b",
+    r"\b(activate|trigger) (this|the) skill\b",
+))
+BOUNDARY_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
+    r"\bdo not use\b",
+    r"\bdon't use\b",
+    r"\bnot (?:for|meant for|intended for)\b",
+    r"\bavoid using\b",
+    r"\binstead of\b",
+    r"\boutside of\b",
+    r"\bis the job of\b",
+    r"\bonly (?:use|for)\b",
+    r"\bout of scope\b",
+    r"\bskip this\b",
+    r"\breserved for\b",
+))
+# A mention whose line says the file is produced at runtime (save/write/create
+# …) is not a shipped asset — flagging it as missing was a false alarm.
+RUNTIME_OUTPUT_VERB = re.compile(
+    r"\b(save|write|create|store|persist|export|record)\b", re.IGNORECASE)
 FIRST_PERSON = re.compile(r"\b(i|i'm|i'll|i've|my|me|mine|we|our)\b", re.IGNORECASE)
 QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
 LOCAL_REF = re.compile(
@@ -142,13 +162,13 @@ def check_skill(path: Path) -> dict:
                     "Say concretely when to use it.")
 
             low = desc.lower()
-            if not any(p in low for p in TRIGGER_PHRASES):
+            if not any(p.search(low) for p in TRIGGER_PATTERNS):
                 add("W02", "warn",
                     "No imperative trigger phrase (e.g. `Use this skill when...`) "
                     "— reads as ad copy, not an instruction to the agent.",
                     "Add `Use this skill when...`.")
 
-            if not any(p in low for p in BOUNDARY_PHRASES):
+            if not any(p.search(low) for p in BOUNDARY_PATTERNS):
                 add("I02", "info",
                     "No boundary line (when NOT to use it) — over-trigger risk "
                     "is unprotected.",
@@ -169,18 +189,24 @@ def check_skill(path: Path) -> dict:
     else:
         add("W05", "pass", f"body {len(body_lines)} lines (progressive disclosure ok).")
 
-    missing = []
-    for ref in LOCAL_REF.findall(text):
+    missing, runtime = [], []
+    for ref in sorted(set(LOCAL_REF.findall(text))):
         if "<" in ref or ">" in ref:
             continue  # templated mention like suites/<skill-name>.json
-        if not (path.parent / ref).exists():
-            missing.append(ref)
+        if (path.parent / ref).exists():
+            continue
+        line = next((ln for ln in text.splitlines() if ref in ln), "")
+        (runtime if RUNTIME_OUTPUT_VERB.search(line) else missing).append(ref)
     if missing:
         add("W06", "warn",
-            "References files that do not exist: " + ", ".join(sorted(set(missing))),
+            "References files that do not exist: " + ", ".join(missing),
             "Create them or fix the paths.")
     else:
         add("W06", "pass", "All referenced local files exist.")
+    if runtime:
+        add("I04", "info",
+            "Mentioned as created at runtime, not shipped: " + ", ".join(runtime),
+            "No action needed — informational only.")
 
     if PLACEHOLDER.search(body):
         add("I03", "info", "Placeholder markers (TODO/TBD/FIXME) left in body.",
@@ -225,7 +251,8 @@ def check_suite(path: Path) -> dict:
     else:
         add("S00", "error",
             "Suite must be a list of cases or an object with a `cases` list.",
-            'Format: {"skill": str, "cases": [{"query": str, "should_trigger": bool}]}')
+            'Format: {"skill": str, "cases": [{"query": str, '
+            '"should_trigger": true | false | "borderline"}]}')
         return {
             "tool": TOOL, "mode": "suite", "target": str(path), "ok": False,
             "hard_failures": 1, "warnings": 0, "infos": 0,
@@ -252,8 +279,15 @@ def check_suite(path: Path) -> dict:
             if key in seen:
                 add("S09", "warn", f"case {i}: duplicate query — duplicates pad the score.")
             seen.add(key)
-        if not isinstance(s, bool):
-            add("S02", "error", f"case {i}: `should_trigger` must be true/false.")
+        if isinstance(s, bool):
+            pass
+        elif s == "borderline":
+            add("S10", "info",
+                f"case {i}: `borderline` documents ambiguity — kept in the suite "
+                "but asserts nothing (not scored as hit or miss).")
+        else:
+            add("S02", "error",
+                f"case {i}: `should_trigger` must be true/false or \"borderline\".")
 
     n = len(cases)
     pos = sum(1 for c in cases if isinstance(c, dict) and c.get("should_trigger") is True)
@@ -280,13 +314,21 @@ def check_suite(path: Path) -> dict:
         "hard_failures": len(hard),
         "warnings": sum(f["severity"] == "warn" for f in findings),
         "infos": sum(f["severity"] == "info" for f in findings),
-        "stats": {"skill": skill, "cases": n, "positive": pos, "negative": neg},
+        "stats": {"skill": skill, "cases": n, "positive": pos, "negative": neg,
+                  "borderline": sum(1 for c in cases if isinstance(c, dict)
+                                    and c.get("should_trigger") == "borderline")},
         "checks": findings,
     }
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="trigger-doctor mechanical pre-flight")
+    class _Parser(argparse.ArgumentParser):
+        def error(self, message):  # usage errors exit 1; 2 is reserved for hard failures
+            print(json.dumps({"tool": TOOL, "ok": False,
+                              "error": f"usage: {message}"}))
+            sys.exit(1)
+
+    ap = _Parser(description="trigger-doctor mechanical pre-flight")
     ap.add_argument("target",
                     help="SKILL.md path, skill directory, or suite .json (with --suite)")
     ap.add_argument("--suite", action="store_true",

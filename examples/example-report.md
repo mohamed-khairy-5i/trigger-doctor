@@ -1,21 +1,40 @@
 # 🩺 Trigger Report — trigger-doctor (worked example)
 
-> This is a **real** report: trigger-doctor's first patient was itself,
-> during the v0.1.0 self-test. Read it to see exactly what a run produces.
+> A **reproducible** demonstration: trigger-doctor's first patient was itself
+> during the v0.1.0 self-test. The BEFORE state below is a **reconstruction**
+> — the original pre-commit draft was never captured in git — rebuilt by
+> removing the boundary sentence from the description (1002 − 122 = 880
+> chars). Every command in this report can be re-run to reproduce its output.
 
 **Honesty label:** simulation of trigger judgment, not a runtime guarantee.
 
 ## Mechanical (scripts/parse_skill.py)
 
-- Result: 1 finding caught → `I02` (info): *"No boundary line (when NOT to
-  use it) — over-trigger risk is unprotected."*
-- All hard checks green: frontmatter ✅ name ✅ description 880/1024 ✅
+BEFORE — description without the boundary line (reconstructed, 880 chars):
+
+```
+$ python3 scripts/parse_skill.py SKILL.md        # run inside the reconstructed copy
+→ 1 finding: I02 (info): "No boundary line (when NOT to use it) —
+  over-trigger risk is unprotected."
+→ all hard checks green: frontmatter ✅ name ✅ description 880/1024 ✅
   body 74 lines ✅ references resolve ✅
+```
+
+AFTER — current `SKILL.md` (1002 chars):
+
+```
+$ python3 scripts/parse_skill.py SKILL.md
+→ Result: PASS — 0 errors, 0 warnings, 0 infos
+```
+
+Reconstruction recipe: strip ` Do not use for ordinary code testing, CI
+setup, or creating a brand-new skill from scratch — that is skill-creator's
+job.` (122 chars) from the description, then re-run.
 
 ## Simulation score (suites/trigger-doctor.json — 12 cases)
 
 - Positives hit: **8/8** — Negatives respected: **4/4** — Borderline: 1
-- Verdict: **NEEDS PRESCRIPTION** → applied → **HEALTHY**
+- Verdict against the BEFORE state: **NEEDS PRESCRIPTION** → applied → **HEALTHY**
 
 ## Per-query table
 
@@ -37,13 +56,13 @@
 ## Diagnosis
 
 - Row 11 risk + `I02` finding map to principle **P6 — No Boundary**
-  (`references/trigger-science.md`): the description claimed *when* to fire
-  but never said *when not to*, leaving adjacent requests (creating a new
-  skill — `skill-creator`'s lane) unprotected against hijacking.
+  (`references/trigger-science.md`): the BEFORE description claimed *when*
+  to fire but never said *when not to*, leaving adjacent requests (creating
+  a new skill — `skill-creator`'s lane) unprotected against hijacking.
 
 ## Prescription
 
-BEFORE (880 chars) — ended at:
+BEFORE (880 chars, reconstructed) — ended at:
 > ...Also use it proactively right after creating or editing any skill, and
 > when reviewing third-party skills before installing them.
 
@@ -51,8 +70,8 @@ AFTER (1002 chars) — one boundary line appended:
 > Do not use for ordinary code testing, CI setup, or creating a brand-new
 > skill from scratch — that is skill-creator's job.
 
-Expected effect per row: 11 un-ambiguated to `skip`; rows 1–8 unchanged;
-budget still within the 1024 limit (880 → 1002).
+Expected effect per row: 11 flips to `skip`; rows 1–8 unchanged; budget
+still within the 1024 limit (880 → 1002).
 
 ## Caveat
 
