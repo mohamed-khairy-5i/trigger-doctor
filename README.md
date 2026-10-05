@@ -1,4 +1,10 @@
-# 🩺 trigger-doctor
+<div align="center">
+  <img src="docs/social-preview.png" alt="trigger-doctor — Diagnose your agent skills" width="100%"/>
+</div>
+
+<h1 align="center">
+  <img src="assets/icon.png" width="60" height="60" alt="trigger-doctor icon"/> trigger-doctor
+</h1>
 
 **Behavioral testing for skill triggers.** Most skills don't die of broken
 logic — they die of never being opened. The `description` field is the gate
