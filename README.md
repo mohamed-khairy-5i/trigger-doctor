@@ -1,18 +1,20 @@
-<div align="center">
-  <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
-</div>
-
-<h1 align="center">
-  <img src="assets/icon.png" width="48" height="48" alt="trigger-doctor icon — robot doctor with stethoscope"/> trigger-doctor
+<h1>
+  <img src="assets/icon.png" width="44" height="44" alt="trigger-doctor icon — robot doctor with stethoscope"/> trigger-doctor
 </h1>
 
-<p align="center">
-  🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions &amp; regression suites<br/>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
-  <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
-  <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
-  <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
-</p>
+🩺 **Diagnose your agent skills** — behavioral testing, prescriptions &amp; regression suites
+
+<div align="center">
+  <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
+  <p>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
+    <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
+    <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
+    <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">
+  </p>
+</div>
+
+---
 
 **Behavioral testing for skill triggers.** Most skills don't die of broken
 logic — they die of never being opened. The `description` field is the gate
