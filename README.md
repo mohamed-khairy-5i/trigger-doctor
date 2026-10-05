@@ -2,7 +2,7 @@
   <img src="assets/icon.png" width="44" height="44" alt="trigger-doctor icon — robot doctor with stethoscope"/> trigger-doctor
 </h1>
 
-🩺 **Diagnose your agent skills** — behavioral testing, prescriptions &amp; regression suites
+<p>🩺 <b>Diagnose your agent skills</b> — behavioral testing, prescriptions and regression suites</p>
 
 <div align="center">
   <img src="docs/social-preview.png" alt="trigger-doctor — behavioral testing and diagnosis for AI agent skill triggers" width="100%"/>
@@ -29,17 +29,16 @@ Cursor, Gemini CLI, GitHub Copilot, …).
 
 ## Quick start
 
-**One command — 79 agents supported (open standard, no per-agent adapters):**
-
 ```bash
 npx skills add mohamed-khairy-5i/trigger-doctor
 ```
 
-Then ask your agent: *"check my skill"*.
+One command installs it for **all 79 agents** — the CLI knows each agent's
+skills directory. Then ask your agent: *"check my skill"*.
 
-The CLI knows each agent's directory — one SKILL.md, every agent:
+**Where it lands (global):**
 
-| Agent | Lands in (global) |
+| Agent | Directory |
 |---|---|
 | Claude Code | `~/.claude/skills/trigger-doctor/` |
 | Hermes Agent | `~/.hermes/skills/trigger-doctor/` |
@@ -48,9 +47,8 @@ The CLI knows each agent's directory — one SKILL.md, every agent:
 | Gemini CLI | `~/.gemini/skills/trigger-doctor/` |
 | GitHub Copilot | `~/.copilot/skills/trigger-doctor/` |
 
-Target only specific agents: `npx skills add mohamed-khairy-5i/trigger-doctor -a claude-code -a hermes-agent`.
-
-**Manual:** copy this folder into your agent's skills directory.
+- Only specific agents: append `-a claude-code -a hermes-agent`
+- **Manual install:** copy this folder into your agent's skills directory
 
 ## Why it's different
 
@@ -60,7 +58,7 @@ Target only specific agents: `npx skills add mohamed-khairy-5i/trigger-doctor -a
 | Behavioral test ("would it fire for *this* utterance?") | ❌ needs a live agent | ✅ the agent judges its own gate |
 | Treatment | ❌ grades only | ✅ ready-to-paste rewritten description |
 | Regression | ❌ | ✅ labeled suite saved in git, re-run after model updates |
-| Scope | one platform | ✅ any [Agent Skills](https://agentskills.io) runtime (71+ agents via `npx skills add`) |
+| Scope | one platform | ✅ any [Agent Skills](https://agentskills.io) runtime (79 agents via `npx skills add`) |
 
 The behavioral layer is the moat: only a skill **inside** an agent can
 simulate the agent's own trigger decision.
@@ -106,9 +104,8 @@ Every simulation failure maps to a named, fixable principle from
 
 The first patient is the doctor itself: `suites/trigger-doctor.json`
 (12 cases — 8 positive, 4 negative) guards trigger-doctor's own description.
-A real worked report lives in
-[`examples/example-report.md`](examples/example-report.md). Install it next
-to your other skills and ask: *"check my skill"*.
+A real worked report from that self-test lives in
+[`examples/example-report.md`](examples/example-report.md).
 
 ## FAQ
 
