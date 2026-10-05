@@ -44,7 +44,7 @@ jobs:
             exit 1
           fi
 
-      - name: Usage error exits 1 (CI contract: 0 clean / 1 usage / 2 hard)
+      - name: "Usage error exits 1 — CI contract: 0 clean, 1 usage, 2 hard"
         run: |
           set +e
           python3 scripts/parse_skill.py > /dev/null 2>&1
