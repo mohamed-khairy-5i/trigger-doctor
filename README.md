@@ -98,8 +98,9 @@ Every simulation failure maps to a named, fixable principle from
    progressive disclosure, dangling references). Stdlib-only, exit code
    CI-friendly.
 2. **SIMULATE** — a labeled suite (`{"query", "should_trigger"}` — the
-   official eval format) is judged honestly against `name` + `description`
-   only, with `borderline` allowed for simple tasks.
+   JSON eval format used by Anthropic's skill-creator) is judged honestly
+   against `name` + `description` only, with `borderline` allowed for
+   simple tasks.
 3. **DIAGNOSE** — every failure maps to a named principle
    (P1 Shy Description, P3 Vocabulary Gap, P6 No Boundary...) from
    `references/trigger-science.md`.
@@ -128,8 +129,9 @@ A missing boundary. One `Do not use for...` line fixes over-triggering
 
 **Is this just a linter?**
 No. Linters grade text mechanics. trigger-doctor simulates the agent's own
-trigger decision against a labeled test suite — the official eval format —
-then treats what it finds and remembers it as a regression suite.
+trigger decision against a labeled test suite — the JSON eval format used
+by Anthropic's skill-creator — then treats what it finds and remembers it
+as a regression suite.
 
 **Does it change my skill?**
 No. It prescribes a copy-paste-ready description and saves a suite; you

@@ -50,7 +50,7 @@ parsing will misbehave in ways no simulation can fix.
 
 ### Step 2 — SIMULATE (behavioral)
 
-Build a labeled query suite in the official eval format
+Build a labeled query suite in the JSON eval format
 (`[{"query": str, "should_trigger": bool}]`):
 
 - Default: **12 queries — 8 positive, 4 negative** (see ratios and quality
