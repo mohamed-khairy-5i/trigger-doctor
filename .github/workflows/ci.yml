@@ -25,6 +25,94 @@ jobs:
       - name: Validate self-test suite (12 cases)
         run: python3 scripts/parse_skill.py suites/trigger-doctor.json --suite
 
+      - name: Collision suite validates (kind=collision, zero positives, S11)
+        run: |
+          python3 scripts/parse_skill.py suites/trigger-doctor.collision.json --suite > /tmp/coll.json
+          grep -q '"kind": "collision"' /tmp/coll.json
+          grep -q '"id": "S11"' /tmp/coll.json
+
+      - name: parse_fields contract — comments, literal blocks, nested mappings
+        run: |
+          python3 - << 'PY'
+          import importlib.util, pathlib
+          spec = importlib.util.spec_from_file_location(
+              "ps", pathlib.Path("scripts/parse_skill.py"))
+          ps = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(ps)
+
+          # 1) inline comments stripped; quoted values keep content; C# survives
+          r = ps.parse_fields(
+              'name: my-skill # the doctor\ndescription: works in C# and F# too')
+          assert r["name"] == "my-skill", r
+          assert r["description"] == "works in C# and F# too", r
+          r = ps.parse_fields('name: "quoted # keep"\ndescription: x')
+          assert r["name"] == "quoted # keep", r
+
+          # 2) | literal preserves newlines; > folds with spaces
+          r = ps.parse_fields('description: |\n  First line.\n  Second line.\nname: x')
+          assert r["description"] == "First line.\nSecond line.", r
+          r = ps.parse_fields('description: >\n  Folded one.\n  Folded two.\nname: x')
+          assert r["description"] == "Folded one. Folded two.", r
+
+          # 3) nested mapping -> dotted keys, never smeared into another field
+          r = ps.parse_fields(
+              'name: my-skill\nmetadata:\n  author: mohamed\n  version: 1.0')
+          assert r["name"] == "my-skill", r
+          assert r["metadata.author"] == "mohamed", r
+          assert r["metadata.version"] == "1.0", r
+          print("parse_fields contract OK")
+          PY
+
+      - name: Inline-comment name passes F02 end-to-end (was a false hard failure)
+        run: |
+          mkdir -p /tmp/comment-name
+          cat > /tmp/comment-name/SKILL.md << 'MD'
+          ---
+          name: my-skill # the doctor
+          description: Use this skill when the user asks for comment demos. Do not use for anything else.
+          ---
+          Body.
+          MD
+          python3 scripts/parse_skill.py /tmp/comment-name/SKILL.md > /tmp/cn.json
+          grep -q 'name `my-skill` ok.' /tmp/cn.json
+
+      - name: Fenced reference mentions are silent; prose mentions still warn
+        run: |
+          mkdir -p /tmp/fence-test/references /tmp/prose-test
+          cat > /tmp/fence-test/SKILL.md << 'MD'
+          ---
+          name: fence-demo
+          description: Use this skill when the user asks for fence demos. Do not use for anything else.
+          ---
+          Shipped reference: references/real-file.md (exists on disk).
+
+          Example instruction, not a live reference:
+
+          ```bash
+          cat references/does-not-exist.md
+          ```
+          MD
+          touch /tmp/fence-test/references/real-file.md
+          out=$(python3 scripts/parse_skill.py /tmp/fence-test/SKILL.md)
+          ! grep -q '"id": "W06"' <<< "$out"
+          cat > /tmp/prose-test/SKILL.md << 'MD'
+          ---
+          name: prose-demo
+          description: Use this skill when the user asks for prose demos. Do not use for anything else.
+          ---
+          Missing file mentioned in prose: references/does-not-exist.md
+          MD
+          out=$(python3 scripts/parse_skill.py /tmp/prose-test/SKILL.md)
+          grep -q '"id": "W06"' <<< "$out"
+
+      - name: I01 directory mismatch is now a warn (was info)
+        run: |
+          mkdir -p /tmp/mismatch-name
+          cp SKILL.md /tmp/mismatch-name/SKILL.md
+          out=$(python3 scripts/parse_skill.py /tmp/mismatch-name/SKILL.md)
+          grep -q '"id": "I01"' <<< "$out"
+          grep -q '"severity": "warn"' <<< "$out"
+
       - name: Borderline is accepted and counted (S10, not S02)
         run: |
           cat > /tmp/borderline.json << 'JSON'

@@ -1,0 +1,16 @@
+{
+  "skill": "trigger-doctor",
+  "kind": "collision",
+  "version": 1,
+  "note": "Collision suite: every row belongs to a neighbor skill's job. trigger-doctor must NOT grab any of them — zero positives is the point (S11). Run it alongside the main suite; a grabbed row is a Misroute (P6/P7/P8).",
+  "cases": [
+    { "query": "create a brand-new skill that turns receipts into expense entries", "should_trigger": false },
+    { "query": "write unit tests for the auth module in my Flask app", "should_trigger": false },
+    { "query": "set up a GitHub Actions pipeline that deploys my site on every push", "should_trigger": false },
+    { "query": "review my Python code for style violations", "should_trigger": false },
+    { "query": "fix the bug in my regex parser, it loops forever on nested groups", "should_trigger": false },
+    { "query": "explain how Python decorators work with an example", "should_trigger": false },
+    { "query": "convert this CSV of orders into JSON for me", "should_trigger": false },
+    { "query": "write the README for my REST API endpoints", "should_trigger": false }
+  ]
+}

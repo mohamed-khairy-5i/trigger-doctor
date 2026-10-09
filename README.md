@@ -8,7 +8,7 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-10b981"></a>&nbsp;
   <img alt="Supported agents: 79" src="https://img.shields.io/badge/agents-79-10b981">&nbsp;
   <img alt="Agent Skills open standard" src="https://img.shields.io/badge/Agent_Skills-open_standard-10b981">&nbsp;
-  <img alt="Self-test: 12/12 passed" src="https://img.shields.io/badge/self--test-12%2F12-10b981">&nbsp;
+  <img alt="Self-test: 12/12 (simulated run — see example-report)" src="https://img.shields.io/badge/self--test-12%2F12_simulated-10b981">&nbsp;
   <a href="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/mohamed-khairy-5i/trigger-doctor/actions/workflows/ci.yml/badge.svg"></a>&nbsp;
   <a href="https://www.skills.sh/mohamed-khairy-5i/trigger-doctor/trigger-doctor"><img alt="Listed on skills.sh — security audits passed" src="https://img.shields.io/badge/skills.sh-listed_%7C_audits_3%2F3-10b981"></a>
 </p>
@@ -115,6 +115,17 @@ The first patient is the doctor itself: `suites/trigger-doctor.json`
 (12 cases — 8 positive, 4 negative) guards trigger-doctor's own description.
 A real worked report from that self-test lives in
 [`examples/example-report.md`](examples/example-report.md).
+
+**What is verified where:** CI runs the *mechanical* layer — structure,
+limits, exit-code contract, results/diff integrity, the W07 two-direction
+contract. The `12/12` is the *behavioral* score from a documented, reproducible
+simulation run (see the example report) — behavioral judgment needs an agent
+by design, so it is **not** CI-verified, and the badge says `simulated`.
+Release audits add two more layers: consistency rounds (`n=3`, `n=10` for
+releases — unstable rows are flagged, not averaged away) and a neutral-judge
+cross-check ([`references/neutral-judge.md`](references/neutral-judge.md)).
+A collision suite (`suites/trigger-doctor.collision.json` — 8 neighbor-domain
+rows, all must NOT trigger) guards against Misroute (P6/P7/P8).
 
 ## FAQ
 

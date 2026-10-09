@@ -3,6 +3,56 @@
 All notable changes to trigger-doctor are documented here.
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.2.0] - 2026-10-09
+
+### Fixed
+- **`parse_fields()` — three frontmatter bugs found by an independent
+  code review, each reproduced before fixing**:
+  inline comments were never stripped (`name: my-skill # the doctor`
+  false-failed F02 with a perfectly valid name); `|` literal block
+  scalars folded with spaces instead of newlines; nested mappings
+  (`metadata:` blocks) were smeared into one concatenated string.
+  Comments are now stripped (quoted values keep everything up to their
+  closing quote; `C#`/`F#` phrases survive), `|` preserves newlines,
+  and one level of nesting is stored as dotted `metadata.author` keys —
+  indentation can no longer smear one field into another.
+- **W06 no longer scans inside ``` fences**: a reference mentioned in a
+  fenced example (`put your suite in suites/your-skill.json`) was
+  reported as a missing file. Prose mentions are still scanned.
+- **I01 promoted info → warn**: a directory name that doesn't match the
+  skill name breaks packagers — that is advice worth a warning, not a
+  footnote.
+
+### Added
+- **Consistency rounds** (Step 2): the suite is judged 3 rounds by
+  default, 10 for release audits; per-row agreement is reported and rows
+  under 8/10 are flagged UNSTABLE — a single binary round hid rows that
+  only fire "sometimes".
+- **Neutral-judge protocol** (`references/neutral-judge.md`): a second,
+  independent agent judges the same suite blind (no labels, no
+  diagnosis); `--diff` between the two results files turns judge
+  disagreement into ambiguity data. Two judges, zero new code — the
+  existing `--results`/`--diff` contract carries it.
+- **Collision suites**: `"kind": "collision"` — all-negative neighbor-
+  domain suites (S11 info replaces the S05 positive-requirement error;
+  starved-suite warning S07 suppressed for this kind). Ship with
+  `suites/trigger-doctor.collision.json` (8 rows the doctor must NOT
+  grab) as the worked example.
+- **Patient card + Consistency line** are now mandatory report sections
+  (`references/report-format.md`) — a report without provenance is an
+  anecdote.
+- CI steps for every new contract: inline-comment name passes F02,
+  `|` literal block folds to newlines, nested metadata survives,
+  collision suite validates, fenced reference mentions stay silent.
+
+### Changed
+- README badge `Self-test: 12/12 passed` → `Self-test: 12/12 · simulated`,
+  with a "what is verified where" breakdown: CI verifies the mechanical
+  layer; the behavioral 12/12 comes from the documented reproducible run
+  in `examples/example-report.md` — behavioral judgment needs an agent
+  by design.
+- TOOL string: `trigger-doctor.parse_skill/0.2.0`.
+
 ## [0.1.4] - 2026-10-05
 
 ### Fixed

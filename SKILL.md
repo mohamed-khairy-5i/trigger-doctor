@@ -68,6 +68,19 @@ handle tend not to trigger any skill; mark such rows `borderline` rather than
 forcing a verdict. The suite validator accepts `"borderline"` and counts it
 (S10) without scoring it as a hit or a miss.
 
+**Repeat for consistency.** Judge the whole suite 3 rounds by default
+(10 for release audits). Judge every round independently — no memory of
+prior rounds. Report per-row agreement (e.g. `9/10`); a row agreed on
+fewer than 8 of 10 rounds (or 2 of 3) is **UNSTABLE** — flag it in the
+report, never average it away. A binary verdict on a single round hides
+this: a row that fires "sometimes" looks like a row that always fires.
+
+**Neutral check (recommended for release audits).** Have a second agent
+judge the same suite blind (no labels, no diagnosis, no doctor context)
+and diff the two results files mechanically — protocol in
+`references/neutral-judge.md`. Flipped rows are ambiguity data, not a
+verdict to argue with.
+
 ### Step 3 — DIAGNOSE
 
 For every failure (missed positive = under-trigger, grabbed negative =
@@ -119,6 +132,13 @@ Before writing new results, copy the existing results file to
 `--diff` compares against. Results are overwritten on every run; the
 snapshot is not.
 
+**Collision suite (recommended).** When the target has obvious neighbor
+skills, also save `suites/<skill-name>.collision.json` — same format,
+`"kind": "collision"`, all rows `should_trigger: false`, each row a
+neighbor's real job. A grabbed row there is a Misroute (P6/P7/P8) even
+when the main suite is green. The validator accepts zero positives for
+collision suites (S11) and errors on them anywhere else.
+
 On a re-run, make the regression diff mechanical, not from memory:
 
 ```bash
@@ -141,9 +161,10 @@ name. Write only inside the skill's own `suites/`, never outside it.
 ## Report
 
 Follow `references/report-format.md` exactly — users learn to trust a
-consistent shape. Minimum sections: Mechanical, Simulation score, per-query
-table, Diagnosis (with principle names), Prescription (BEFORE/AFTER), Caveat,
-Saved files (baseline suite + results).
+consistent shape. Minimum sections: **Patient card** (tool version, judge
+model, date, suite), Mechanical, Simulation score (with the Consistency
+line), per-query table, Diagnosis (with principle names), Prescription
+(BEFORE/AFTER), Caveat, Saved files (baseline suite + results).
 
 ## Scope
 

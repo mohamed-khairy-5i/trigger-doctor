@@ -23,7 +23,7 @@ import re
 import sys
 from pathlib import Path
 
-TOOL = "trigger-doctor.parse_skill/0.1.4"
+TOOL = "trigger-doctor.parse_skill/0.2.0"
 
 DESC_LIMIT = 1024   # official Agent Skills description budget
 NAME_LIMIT = 64     # official name budget
@@ -125,26 +125,87 @@ def split_frontmatter(text: str):
     return None, text
 
 
+def _strip_inline_comment(value: str) -> str:
+    """Strip a trailing ` # comment` from a plain scalar value.
+
+    Quoted values keep everything up to their closing quote; unquoted values
+    cut at the first space-before-hash, so phrases like `C# skills` survive.
+    """
+    if value[:1] in ('"', "'"):
+        end = value.find(value[0], 1)
+        if end != -1:
+            return value[1:end]
+    cut = value.find(" #")
+    if cut != -1:
+        value = value[:cut]
+    return value.strip("\"'").strip()
+
+
 def parse_fields(fm_text: str) -> dict:
-    """Minimal YAML subset: top-level `key: value` plus indented block scalars."""
+    """Minimal YAML subset — deliberately not a YAML parser:
+
+    - top-level `key: value` scalars (inline comments stripped, quotes removed)
+    - block scalars: `>` folds with spaces, `|` preserves newlines
+    - plain multi-line continuations fold with spaces
+    - one level of nested mappings is kept as dotted `parent.child` keys
+      (e.g. `metadata.author`) so indentation can never smear one field
+      into another.
+    """
     fields: dict = {}
     current = None
+    block = None  # None | "folded" | "literal"
     for raw in fm_text.splitlines():
         if not raw.strip() or raw.lstrip().startswith("#"):
             continue
-        if raw[0] in " \t" and current is not None:
-            fields[current] = (fields[current] + " " + raw.strip()).strip()
+        if raw[0] in " \t":
+            if current is None:
+                continue
+            stripped = raw.strip()
+            if block == "literal":
+                fields[current] = (fields[current] + "\n" + stripped) \
+                    if fields[current] else stripped
+            elif block == "folded" or fields.get(current):
+                fields[current] = (fields[current] + " " + stripped).strip()
+            else:
+                m2 = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", stripped)
+                if m2 and m2.group(2).strip():
+                    fields[f"{current}.{m2.group(1)}"] = \
+                        _strip_inline_comment(m2.group(2).strip())
+                else:
+                    fields[current] = (fields[current] + " " + stripped).strip()
             continue
         m = re.match(r"^([A-Za-z0-9_-]+):\s*(.*)$", raw)
         if not m:
             current = None
+            block = None
             continue
         current, value = m.group(1), m.group(2).strip()
-        if value in ("|", ">", "|-", ">-", "|+", ">+"):
-            fields[current] = ""  # block scalar: fold following indented lines
+        block = None
+        if value in ("|", "|-", "|+"):
+            fields[current] = ""  # block scalar: lines follow, newlines kept
+            block = "literal"
+        elif value in (">", ">-", ">+"):
+            fields[current] = ""  # block scalar: lines follow, folded
+            block = "folded"
         else:
-            fields[current] = value.strip("\"'")
+            fields[current] = _strip_inline_comment(value)
     return fields
+
+
+def strip_fenced_blocks(text: str) -> str:
+    """Remove ``` fenced code blocks. References mentioned inside a fence are
+    examples for the reader, not files the skill ships or calls — scanning
+    them produced W06 false positives (e.g. `suites/your-skill.json` shown in
+    an instruction snippet). Prose mentions are still scanned."""
+    out: list = []
+    inside = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            inside = not inside
+            continue
+        if not inside:
+            out.append(line)
+    return "\n".join(out)
 
 
 def check_skill(path: Path) -> dict:
@@ -190,7 +251,7 @@ def check_skill(path: Path) -> dict:
             add("F02", "pass", f"name `{name}` ok.")
 
         if path.parent.name and name and path.parent.name != name:
-            add("I01", "info",
+            add("I01", "warn",
                 f"Directory `{path.parent.name}` != skill name `{name}`.",
                 "Rename the directory to match for packagers.")
 
@@ -243,13 +304,14 @@ def check_skill(path: Path) -> dict:
     else:
         add("W05", "pass", f"body {len(body_lines)} lines (progressive disclosure ok).")
 
+    prose = strip_fenced_blocks(text)
     missing, runtime = [], []
-    for ref in sorted(set(LOCAL_REF.findall(text))):
+    for ref in sorted(set(LOCAL_REF.findall(prose))):
         if "<" in ref or ">" in ref:
             continue  # templated mention like suites/<skill-name>.json
         if (path.parent / ref).exists():
             continue
-        line = next((ln for ln in text.splitlines() if ref in ln), "")
+        line = next((ln for ln in prose.splitlines() if ref in ln), "")
         (runtime if RUNTIME_OUTPUT_VERB.search(line) else missing).append(ref)
     if missing:
         add("W06", "warn",
@@ -318,9 +380,11 @@ def check_suite(path: Path) -> dict:
             "stats": {}, "checks": findings,
         }
 
+    kind = None
     if isinstance(data, dict) and isinstance(data.get("cases"), list):
         cases = data["cases"]
         skill = data.get("skill")
+        kind = data.get("kind")
     elif isinstance(data, list):
         cases = data
         skill = None
@@ -375,7 +439,12 @@ def check_suite(path: Path) -> dict:
         add("S04", "error", f"Only {n} cases — too thin to say anything.")
     elif n < 12:
         add("S04", "warn", f"{n} cases — default suite is 12 (8 positive / 4 negative).")
-    if pos < 3:
+    is_collision = kind == "collision"
+    if pos < 3 and is_collision:
+        add("S11", "info",
+            "Collision suite: every row asserts a neighbor skill's job must "
+            "NOT be grabbed — zero positive cases is the point.")
+    elif pos < 3:
         add("S05", "error", f"Only {pos} positive cases — recall is untested.")
     if neg < 2:
         add("S06", "error",
@@ -383,7 +452,7 @@ def check_suite(path: Path) -> dict:
             "over-triggering goes undetected."
             + (f" ({borderline} borderline rows are not counted as negatives.)"
                if borderline else ""))
-    if pos and neg and pos < neg:
+    if pos and neg and pos < neg and not is_collision:
         add("S07", "warn", "More negatives than positives — the skill is being starved.")
 
     hard = [f for f in findings if f["severity"] == "error"]
@@ -395,8 +464,8 @@ def check_suite(path: Path) -> dict:
         "hard_failures": len(hard),
         "warnings": sum(f["severity"] == "warn" for f in findings),
         "infos": sum(f["severity"] == "info" for f in findings),
-        "stats": {"skill": skill, "cases": n, "positive": pos, "negative": neg,
-                  "borderline": borderline},
+        "stats": {"skill": skill, "kind": kind, "cases": n,
+                  "positive": pos, "negative": neg, "borderline": borderline},
         "checks": findings,
     }
 
